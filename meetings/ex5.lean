@@ -78,7 +78,7 @@ by
     cases a
     · simp only
     · simp only [not_true_eq_false] at *
-  · simp at *
+  · simp only [true_iff, false_iff] at *
     cases a
     · simp only at *
     · simp only [not_false_eq_true]
@@ -130,7 +130,7 @@ by
       constructor
       · simp only [Set.mem_univ]
       · intro x
-        simp at pw
+        simp only [Set.powerset_univ] at pw
         have real_set := pw.1
         haveI := Classical.dec (x ∈ real_set)
         exact (ite (x ∈ real_set) binary.one binary.zero)
@@ -226,3 +226,185 @@ by
       exact SetCoe.ext ha
 
   exact Function.Embedding.schroeder_bernstein hf hg
+
+-- Exercise 4
+axiom α : Type
+axiom N0 : Set α
+axiom S : N0 → N0
+
+axiom z : N0
+axiom p1 : ∀ n : N0, S n ≠ z
+axiom p2 : Function.Injective S
+axiom p3 : ∀ A : Set ↑N0,
+            z ∈ A
+            ∧ (∀ n : N0, n ∈ A → (S n) ∈ A)
+            → A = N0
+
+-- Example
+lemma every_nonzero_nat_successor
+  (n : N0)
+  : n ≠ z → ∃ m : N0, n = S m :=
+by
+  intro hne
+  let A := {n : N0 | n = z ∨ ∃ m : N0, n = S m}
+  have hzmem : z ∈ A := by
+    simp only [Subtype.exists, Set.mem_setOf_eq, true_or]
+  have hind : (∀ n : N0, n ∈ A → (S n) ∈ A) := by
+    intros n _
+    simp only [Subtype.exists, Set.mem_setOf_eq]
+    right
+    use n
+    simp only [Subtype.coe_eta, Subtype.coe_prop, exists_const]
+  have heq := p3 A ⟨hzmem, hind⟩
+  simp [A, Set.ext_iff] at heq
+  specialize heq n
+  simp only [Subtype.coe_eta, Subtype.coe_prop, exists_const, iff_true] at heq
+  rcases heq with (hl | hr)
+  · rw [SetCoe.ext_iff] at hl
+    symm at hl
+    exact absurd hl hne
+  · rcases hr with ⟨a, ⟨h, heq⟩⟩
+    use { val := a, property := h }
+
+axiom plus : N0 × N0 → N0
+axiom zplus : ∀ x : N0, plus (x, z) = x
+axiom splus : ∀ x y : N0, plus (x, (S y)) = S (plus (x, y))
+
+axiom mul : N0 × N0 → N0
+axiom zmul : ∀ x : N0, mul (x, z) = z
+axiom smul : ∀ x y : N0, mul (x, (S y)) = plus (mul (x, y), x)
+
+-- a)
+lemma zero_plus_x_eq_eq
+  (x : N0)
+  : plus (z, x) = x :=
+by
+  let A := {b : N0 | plus (z, b) = b}
+  have hzmem : z ∈ A := by
+    simp only [Set.mem_setOf_eq]
+    exact zplus z
+  have hind : (∀ n : N0, n ∈ A → (S n) ∈ A) := by
+    intros n hel
+    simp only [Set.mem_setOf_eq]
+    simp only [Set.mem_setOf_eq] at hel
+    simp [splus, hel]
+  have heq := p3 A ⟨hzmem, hind⟩
+  simp [A, Set.ext_iff] at heq
+  specialize heq x
+  simp only [Subtype.coe_eta, Subtype.coe_prop, exists_const, iff_true] at heq
+  exact heq
+
+-- b)
+-- Helper
+lemma succ_plus_eq_succ_plus
+  (x y : N0)
+  : plus ((S x), y) = S (plus (x, y)) :=
+by
+  let A := {y : N0 | plus ((S x), y) = S (plus (x, y))}
+  have hzmem : z ∈ A := by
+    simp only [Set.mem_setOf_eq]
+    simp [zplus]
+  have hind : (∀ n : N0, n ∈ A → (S n) ∈ A) := by
+    intros n hel
+    simp only [Set.mem_setOf_eq]
+    simp only [Set.mem_setOf_eq] at hel
+    simp [splus, ←hel]
+  have heq := p3 A ⟨hzmem, hind⟩
+  simp [A, Set.ext_iff] at heq
+  specialize heq y
+  simp only [Subtype.coe_eta, Subtype.coe_prop, exists_const, iff_true] at heq
+  exact heq
+
+lemma succ_plus_n_eq_succ_n_plus
+  (x y : N0)
+  : plus ((S y), x) = S (plus (x, y)) :=
+by
+  let A := {x : N0 | plus ((S y), x) = S (plus (x, y))}
+  have hzmem : z ∈ A := by
+    simp only [Set.mem_setOf_eq]
+    rw [zplus, zero_plus_x_eq_eq]
+  have hind : (∀ n : N0, n ∈ A → (S n) ∈ A) := by
+    intros n hel
+    simp only [Set.mem_setOf_eq]
+    simp only [Set.mem_setOf_eq] at hel
+    rw [splus, hel, succ_plus_eq_succ_plus]
+  have heq := p3 A ⟨hzmem, hind⟩
+  simp [A, Set.ext_iff] at heq
+  specialize heq x
+  simp only [Subtype.coe_eta, Subtype.coe_prop, exists_const, iff_true] at heq
+  exact heq
+
+-- c)
+lemma zero_mul_eq_zero
+  (x : N0)
+  : mul (z, x) = z :=
+by
+  let A := {x : N0 | mul (z, x) = z}
+  have hzmem : z ∈ A := by
+    simp only [Set.mem_setOf_eq]
+    rw [zmul]
+  have hind : (∀ n : N0, n ∈ A → (S n) ∈ A) := by
+    intros n hel
+    simp only [Set.mem_setOf_eq]
+    simp only [Set.mem_setOf_eq] at hel
+    rw [smul, hel, zero_plus_x_eq_eq]
+  have heq := p3 A ⟨hzmem, hind⟩
+  simp [A, Set.ext_iff] at heq
+  specialize heq x
+  simp only [Subtype.coe_eta, Subtype.coe_prop, exists_const, iff_true] at heq
+  exact heq
+
+-- d)
+lemma succ_zero_mul_eq_self
+  (x : N0)
+  : mul (S z, x) = x :=
+by
+  let A := {x : N0 | mul (S z, x) = x}
+  have hzmem : z ∈ A := by
+    simp only [Set.mem_setOf_eq]
+    rw [zmul]
+  have hind : (∀ n : N0, n ∈ A → (S n) ∈ A) := by
+    intros n hel
+    simp only [Set.mem_setOf_eq]
+    simp only [Set.mem_setOf_eq] at hel
+    rw [smul, hel, splus, zplus]
+  have heq := p3 A ⟨hzmem, hind⟩
+  simp [A, Set.ext_iff] at heq
+  specialize heq x
+  simp only [Subtype.coe_eta, Subtype.coe_prop, exists_const, iff_true] at heq
+  exact heq
+
+-- Generic recursor on my axioms
+lemma generic_recursor
+  {motive : N0 → Prop}
+  (hs : ∀ n : N0, motive n → motive (S n))
+  (hz : motive z)
+  (x : N0)
+  : motive x :=
+by
+  let A := {x : N0 | motive x}
+  have hzmem : z ∈ A := by
+    simp only [Set.mem_setOf_eq]
+    exact hz
+  have hind : (∀ n : N0, n ∈ A → (S n) ∈ A) := by
+    intros n hel
+    simp only [Set.mem_setOf_eq]
+    simp only [Set.mem_setOf_eq] at hel
+    specialize hs n
+    exact hs hel
+  have heq := p3 A ⟨hzmem, hind⟩
+  simp [A, Set.ext_iff] at heq
+  specialize heq x
+  simp only [Subtype.coe_eta, Subtype.coe_prop, exists_const, iff_true] at heq
+  exact heq
+
+lemma succ_zero_mul_eq_self'
+  (x : N0)
+  : mul (S z, x) = x :=
+by
+  have hz : mul (S z, z) = z := by
+    rw [zmul]
+  have hs : ∀ x : N0, mul (S z, x) = x → mul (S z, S x) = S x := by
+    intros x hel
+    rw [smul, hel, splus, zplus]
+  exact generic_recursor hs hz x
