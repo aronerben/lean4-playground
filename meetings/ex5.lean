@@ -377,8 +377,8 @@ by
 -- Generic recursor on my axioms
 lemma generic_recursor
   {motive : N0 → Prop}
-  (hs : ∀ n : N0, motive n → motive (S n))
   (hz : motive z)
+  (hs : ∀ n : N0, motive n → motive (S n))
   (x : N0)
   : motive x :=
 by
@@ -399,12 +399,9 @@ by
   exact heq
 
 lemma succ_zero_mul_eq_self'
-  (x : N0)
-  : mul (S z, x) = x :=
+  : ∀ x, mul (S z, x) = x :=
 by
-  have hz : mul (S z, z) = z := by
-    rw [zmul]
-  have hs : ∀ x : N0, mul (S z, x) = x → mul (S z, S x) = S x := by
-    intros x hel
+  apply generic_recursor
+  · rw [zmul]
+  · intros x hel
     rw [smul, hel, splus, zplus]
-  exact generic_recursor hs hz x
