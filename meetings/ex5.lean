@@ -2,36 +2,45 @@ import Mathlib.Tactic
 import Mathlib.Tactic.Basic
 
 -- Exercise 1
--- a)
-lemma prod_bin_real_uncountable
-  : ¬(Set.Countable (({0, 1} : Set ℕ) ×ˢ (Set.univ : Set ℝ)))  :=
-by
-  intro hcnt
-  have hun : ({0, 1} : Set ℕ) = {0} ∪ {1} := by
-    rw [Set.union_comm, Set.union_singleton]
-  rw [hun] at hcnt
-  simp_rw
-    [Set.union_prod,
-     Set.countable_union,
-     Set.countable_iff_exists_injective] at hcnt
-  rcases hcnt with ⟨⟨f, finj⟩⟩
-
-  let g : ↑(Set.univ : Set ℝ) → ({0} ×ˢ (Set.univ : Set ℝ))
-    := λ r => ⟨((0 : ℕ), r), by simp⟩
-  have ginj : Function.Injective g := by
-    intro a b heq
-    simp only [Subtype.mk.injEq, Prod.mk.injEq, true_and] at heq
-    exact SetCoe.ext heq
-
-  let fg : ↑(Set.univ : Set ℝ) → ℕ := f ∘ g
-  have fginj := Function.Injective.comp finj ginj
-
-  exact Cardinal.not_countable_real (Set.countable_iff_exists_injective.mpr ⟨fg, fginj⟩)
-
-  -- b)
 def Countably_Infinite {α : Type} (s : Set α) : Prop := Set.Countable s ∧ Set.Infinite s
 def Uncountable {α : Type} (s : Set α) : Prop := ¬(Set.Countable s) ∧ (Set.Infinite s)
+-- a)
+lemma prod_bin_real_uncountable
+  : Uncountable (({0, 1} : Set ℕ) ×ˢ (Set.univ : Set ℝ))  :=
+by
+  have hucnt
+    : ¬(Set.Countable (({0, 1} : Set ℕ) ×ˢ (Set.univ : Set ℝ))) := by
+    intro hcnt
+    have hun : ({0, 1} : Set ℕ) = {0} ∪ {1} := by
+      rw [Set.union_comm, Set.union_singleton]
+    rw [hun] at hcnt
+    simp_rw
+      [Set.union_prod,
+       Set.countable_union,
+       Set.countable_iff_exists_injective] at hcnt
+    rcases hcnt with ⟨⟨f, finj⟩⟩
 
+    let g : ↑(Set.univ : Set ℝ) → ({0} ×ˢ (Set.univ : Set ℝ))
+      := λ r => ⟨((0 : ℕ), r), by simp⟩
+    have ginj : Function.Injective g := by
+      intro a b heq
+      simp only [Subtype.mk.injEq, Prod.mk.injEq, true_and] at heq
+      exact SetCoe.ext heq
+
+    let fg : ↑(Set.univ : Set ℝ) → ℕ := f ∘ g
+    have fginj := Function.Injective.comp finj ginj
+
+    exact Cardinal.not_countable_real (Set.countable_iff_exists_injective.mpr ⟨fg, fginj⟩)
+  constructor
+  · exact hucnt
+  · have hncnt {α : Type} {s : Set α}
+      : ¬Set.Countable s → Set.Infinite s := by
+      contrapose
+      simp only [Set.mem_singleton_iff, Set.not_infinite, not_not, Set.Finite.countable]
+      exact Set.Finite.countable
+    exact hncnt hucnt
+
+-- b)
 lemma uncountable_minus_countably_infinite_uncountable
   {α : Type}
   {A B : Set α}
@@ -40,15 +49,14 @@ lemma uncountable_minus_countably_infinite_uncountable
   (hucnt : Uncountable B)
   : Uncountable (B \ A) :=
 by
-  rcases hcntiA with ⟨hcntA⟩
+  rcases hcntiA with ⟨hcntA, _⟩
   constructor
   · intro hcntmin
     have hcntB := Set.Countable.union hcntA hcntmin
     rw [Set.union_diff_cancel hsub] at hcntB
     exact hucnt.1 hcntB
-  · by_contra hninf
-    rw [@Set.not_infinite] at hninf
-    have hcnt := Set.Finite.countable hninf
+  · intro hfin
+    have hcnt := Set.Finite.countable hfin
     have hcntB := Set.Countable.union hcntA hcnt
     rw [Set.union_diff_cancel hsub] at hcntB
     exact hucnt.1 hcntB
@@ -246,25 +254,21 @@ lemma every_nonzero_nat_successor
   : n ≠ z → ∃ m : N0, n = S m :=
 by
   intro hne
-  let A := {n : N0 | n = z ∨ ∃ m : N0, n = S m}
+  let A := {n : N0 | n ≠ z → ∃ m : N0, n = S m}
   have hzmem : z ∈ A := by
-    simp only [Subtype.exists, Set.mem_setOf_eq, true_or]
+    simp only [ne_eq, Subtype.exists, Set.mem_setOf_eq, not_true_eq_false, IsEmpty.forall_iff]
   have hind : (∀ n : N0, n ∈ A → (S n) ∈ A) := by
     intros n _
-    simp only [Subtype.exists, Set.mem_setOf_eq]
-    right
+    simp only [ne_eq, Subtype.exists, Set.mem_setOf_eq]
+    intro _
     use n
     simp only [Subtype.coe_eta, Subtype.coe_prop, exists_const]
   have heq := p3 A ⟨hzmem, hind⟩
   simp [A, Set.ext_iff] at heq
   specialize heq n
   simp only [Subtype.coe_eta, Subtype.coe_prop, exists_const, iff_true] at heq
-  rcases heq with (hl | hr)
-  · rw [SetCoe.ext_iff] at hl
-    symm at hl
-    exact absurd hl hne
-  · rcases hr with ⟨a, ⟨h, heq⟩⟩
-    use { val := a, property := h }
+  rcases heq hne with ⟨a, ⟨h, heq⟩⟩
+  use { val := a, property := h }
 
 axiom plus : N0 × N0 → N0
 axiom zplus : ∀ x : N0, plus (x, z) = x
@@ -287,7 +291,7 @@ by
     intros n hel
     simp only [Set.mem_setOf_eq]
     simp only [Set.mem_setOf_eq] at hel
-    simp [splus, hel]
+    rw [splus, hel]
   have heq := p3 A ⟨hzmem, hind⟩
   simp [A, Set.ext_iff] at heq
   specialize heq x
@@ -308,7 +312,7 @@ by
     intros n hel
     simp only [Set.mem_setOf_eq]
     simp only [Set.mem_setOf_eq] at hel
-    simp [splus, ←hel]
+    rw [splus, hel, ←splus]
   have heq := p3 A ⟨hzmem, hind⟩
   simp [A, Set.ext_iff] at heq
   specialize heq y
@@ -403,5 +407,14 @@ lemma succ_zero_mul_eq_self'
 by
   apply generic_recursor
   · rw [zmul]
-  · intros x hel
-    rw [smul, hel, splus, zplus]
+  · intros x hi
+    rw [smul, hi, splus, zplus]
+
+lemma succ_plus_n_eq_succ_n_plus'
+  : ∀ x y, plus ((S y), x) = S (plus (x, y)) :=
+by
+  apply generic_recursor
+  · intro y
+    rw [zplus, zero_plus_x_eq_eq]
+  · intros n hi y
+    rw [splus, hi, succ_plus_eq_succ_plus]
