@@ -310,22 +310,12 @@ def WeakOrder
 def Trichotomy (a b c : Prop) : Prop :=
 (¬a ∧ ¬b ∧ c) ∨ (¬a ∧ b ∧ ¬c) ∨ (a ∧ ¬b ∧ ¬c)
 
-
--- TODO FIX THIS
--- > is not included as a strict order
 def StrictOrder
   {α : Type}
   (rel : α → α → Prop)
   : Prop :=
   ∀ a b c : α, (rel a b → rel b c → rel a c)
   ∧ Trichotomy (rel a b) (rel b a) (a = b)
-
-  -- ∀ a b : α, rel a b ↔ WeakOrder rel ∧ rel a b ∧ a ≠ b
-
-  -- ∀ a b c : α, (rel a b → rel b c → rel a c)
-  -- ∧ (rel a b ∨ rel b a ∨ a = b)
-
-  -- WeakOrder rel ∧ ∀ a b : α, rel a b ∧ a ≠ b
 
 lemma r3_not_weak_order
   : ¬WeakOrder R3 :=
