@@ -1,32 +1,76 @@
 import Mathlib.Tactic
 
-open BigOperators
+@[simp]
+def IsOrdered {α : Type} [LE α] : List α → Prop :=
+  List.Pairwise LE.le
 
-open Submodule Quotient Set
+structure OrderedList (α : Type) [LE α] where
+  val : List α
+  ordered : IsOrdered val
 
-lemma basis_is_spanning_set_for_quot_space
-    {R M ι : Type}
-    [Ring R]
-    [AddCommGroup M]
-    [Module R M]
-    [Fintype ι]
-    (U : Submodule R M)
-    (b : Basis ι R M)
-    (wq : M ⧸ U) : ∃ (a : ι → R),
-    ∑ i, a i • Submodule.Quotient.mk (b i) = wq := by
-  have : span R (range (mkQ U ∘ b : ι → M ⧸ U)) = ⊤  := by
-    rw [range_comp, span_image, b.span_eq, Submodule.map_top, range_mkQ]
-  exact (mem_span_range_iff_exists_fun R).mp (eq_top_iff'.mp this wq)
+@[simp]
+instance [LE α]
+  : Membership α (OrderedList α)
+:= ⟨λ a xs => a ∈ xs.val⟩
 
-example [CommRing R] [AddCommGroup M] [Module R M] [Fintype ι] (b : Basis ι R M) (U : Submodule R M) : ∀ x : M ⧸ U, ∃ (a : ι →₀ R), ∑ i, a i • Submodule.Quotient.mk (b i) = x := by
-  rintro ⟨v⟩
-  use b.repr v
-  change ∑ i, Submodule.mkQ U (b.repr v i • b i) = Submodule.mkQ U v
-  rw [← map_sum, Basis.sum_repr]
+lemma cons_le_is_ordered
+  {α : Type} [LE α]
+  {a : α}
+  {xs : List α}
+  (h : IsOrdered xs)
+  (hle : ∀ (x : α), x ∈ xs → a ≤ x)
+  : IsOrdered (a :: xs) :=
+by
+  simp only [IsOrdered, List.pairwise_cons] at *
+  exact ⟨hle, h⟩
 
-example [CommRing R] [AddCommGroup M] [Module R M] [Fintype ι] (b : Basis ι R M) (U : Submodule R M) : ∀ x : M ⧸ U, ∃ (a : ι →₀ R), ∑ i, a i • Submodule.Quotient.mk (b i) = x := by
-  intro x
-  have ⟨v, hv⟩ := Submodule.mkQ_surjective U x
-  use b.repr v
-  simp_rw [← Submodule.mkQ_apply, ← map_smul, ← map_sum, Basis.sum_repr]
-  exact hv
+def ocons
+  {α : Type} [LE α]
+  (a : α)
+  (xs : OrderedList α)
+  (hle : ∀ (x : α), x ∈ xs → a ≤ x)
+  : OrderedList α
+:= ⟨a :: xs.val, cons_le_is_ordered xs.ordered hle⟩
+
+def oinsert
+  {α : Type} [hp : LE α]
+  (a : α)
+  (l : OrderedList α)
+  [DecidableRel hp.le]
+  : OrderedList α
+:= match l with
+  | ⟨[], _⟩ => ⟨[a], List.pairwise_singleton LE.le a⟩
+  | ⟨x :: xs, ordered⟩ =>
+      if hle : ∀ (x : α), x ∈ l → a ≤ x
+      then ocons a l hle
+      else ocons x (oinsert a ⟨xs, List.Pairwise.of_cons ordered⟩)
+        (sorry)
+
+def insert
+  {α : Type} [hp : LE α]
+  (a : α)
+  (l : List α)
+  [DecidableRel hp.le]
+  : List α
+:= match l with
+  | [] => [a]
+  | x :: xs =>
+      if hle : ∀ (x : α), x ∈ l → a ≤ x
+      then a :: x :: xs
+      else  x :: (insert a xs)
+
+
+
+mutual
+inductive OrderedList' (α : Type) [LE α] where
+| onil' : OrderedList' α
+| ocons' (x : α) (xs : OrderedList' α) : less x xs → OrderedList' α
+
+def less
+  {α : Type} [LE α]
+  (x : α)
+  (xs : OrderedList' α) :=
+  match xs with
+  | OrderedList'.onil' => True
+  | OrderedList'.ocons' y ys _ => x ≤ y
+end

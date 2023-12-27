@@ -62,19 +62,37 @@ by
     exact hucnt.1 hcntB
 
 -- Exercise 2
-def indicator : Set (ℝ → ({0, 1} : Set ℕ)) := Set.univ
+def binary' : Set ℕ := {0, 1}
+
+def indicator : Set (ℝ → (binary')) := Set.univ
 
 lemma indicator_card_gt_real_card
   : Cardinal.mk indicator > Cardinal.mk (Set.univ : Set ℝ) :=
 by
   simp only [Cardinal.mk_univ, indicator]
-  rw [←Cardinal.power_def, Cardinal.mk_insert (by simp), Cardinal.mk_singleton]
+  rw [binary', ←Cardinal.power_def, Cardinal.mk_insert (by simp), Cardinal.mk_singleton]
   ring_nf
   exact Cardinal.cantor (Cardinal.mk ℝ)
 
+lemma binary'_zero_eq_iff_one_eq
+  {b : binary'}
+  (hb : ¬b.val = 1)
+  : b.val = 0 :=
+by
+  rcases b with ⟨hv, hp⟩
+  dsimp only at *
+  rw [binary'] at hp
+  simp only [Set.mem_singleton_iff, Set.mem_insert_iff] at hp
+  rcases hp with (h0 | h1)
+  · exact h0
+  · exfalso
+    exact hb h1
+
+-- Alternatively
 inductive binary : Type
   | zero : binary
   | one : binary
+
 
 lemma binary_zero_eq_iff_one_eq
   {a b : binary}

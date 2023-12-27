@@ -99,8 +99,8 @@ by
   apply generic_recursor
   · intros m n
     rw [zplus, zexp, smul, zmul, zero_plus_x_eq_eq]
-  · intros n hi m r
-    specialize hi m r
+  · intros r hi m n
+    specialize hi m n
     rw [splus, sexp, sexp, hi, mul_assoc']
 
 -- b)
@@ -201,6 +201,15 @@ axiom add_one_hair_still_bald
   {person : Person}
   : Bald person → Bald (add_one_hair person)
 
+lemma false_proof
+  : False :=
+by
+  let baldie : Person := ⟨[]⟩
+  have bald : Bald baldie := rfl
+  have still_bald := add_one_hair_still_bald bald
+  rw [Bald, add_one_hair] at still_bald
+  contradiction
+
 lemma all_people_bald
   : ∀ person : Person, Bald (person) :=
 by
@@ -299,6 +308,7 @@ def PartialOrder'
   : Prop :=
   ∀ a b c : α, (rel a b → rel b c → rel a c)
   ∧ (rel a b → rel b a → a = b)
+-- TODO reflexive
 
 def WeakOrder
   {α : Type}
@@ -442,24 +452,25 @@ class CStrictOrder {α : Type u} (rel : α → α → Prop) : Prop where
   trich : ∀ (a b : α), Trichotomy (rel a b) (rel b a) (a = b)
 
 def R5
-  {α : Type}
+  {α β : Type}
   (S : α → α → Prop)
-  (T : α → α → Prop)
+  (T : β → β → Prop)
   [CStrictOrder S]
   [CStrictOrder T]
   [DecidableRel S]
   [DecidableRel T]
   [DecidableEq α]
-  (p q : α × α)
+  [DecidableEq β]
+  (p q : α × β)
   : Prop :=
   S p.1 q.1 ∨ (p.1 = q.1 ∧ T p.2 q.2)
 
 instance
-  {α : Type}
-  {S : α → α → Prop} {T : α → α → Prop}
+  {α β : Type}
+  {S : α → α → Prop} {T : β → β → Prop}
   [CStrictOrder S] [CStrictOrder T]
   [DecidableRel S] [DecidableRel T]
-  [DecidableEq α]
+  [DecidableEq α] [DecidableEq β]
   : DecidableRel (R5 S T) :=
 by
   intro a b
@@ -468,7 +479,7 @@ by
   revert a b
   exact Prod.Lex.decidable S T
 
-instance : CStrictOrder Nat.lt where
+instance strict_nat_lt : CStrictOrder Nat.lt where
   trans := Nat.lt_trans
   trich := by
     intro a b
@@ -511,14 +522,15 @@ instance : DecidableRel Nat.lt := Nat.decLt
 -- #eval R5 (Nat.lt) (Nat.lt) (1, 2) (2, 3)
 
 lemma r5_strict_order
-  {α : Type}
+  {α β : Type}
   (S : α → α → Prop)
-  (T : α → α → Prop)
+  (T : β → β → Prop)
   [hS : CStrictOrder S]
   [hT : CStrictOrder T]
   [DecidableRel S]
   [DecidableRel T]
   [DecidableEq α]
+  [DecidableEq β]
   : StrictOrder (R5 S T) :=
 by
   intro p q j
@@ -541,19 +553,19 @@ by
         · rw [←heqp] at heqq
           exact heqq
         · exact hT.trans hTp hTq
-  · have foo := hS.trich p.1 q.1
-    have fool := hT.trich p.2 q.2
+  · have hStrich := hS.trich p.1 q.1
+    have hTtrich := hT.trich p.2 q.2
     rw [Trichotomy] at *
     -- Aesop magic
     rename_i inst inst_1 inst_2
     unhygienic with_reducible aesop_destruct_products
     simp_all only [Prod.mk.injEq, not_and]
-    unhygienic aesop_cases foo <;> [(unhygienic aesop_cases fool <;> [skip; (unhygienic aesop_cases h_1)]);
-      (unhygienic aesop_cases fool <;> [(unhygienic aesop_cases h);
+    unhygienic aesop_cases hStrich <;> [(unhygienic aesop_cases hTtrich <;> [skip; (unhygienic aesop_cases h_1)]);
+      (unhygienic aesop_cases hTtrich <;> [(unhygienic aesop_cases h);
           (unhygienic aesop_cases h <;> [(unhygienic aesop_cases h_1); (unhygienic aesop_cases h_1)])])]
     · simp_all only [true_and, and_self, and_true, not_true_eq_false, forall_true_left, and_false, or_self, or_false]
       unhygienic with_reducible aesop_destruct_products
-      aesop_subst [right_2, right]
+      aesop_subst [right, right_2]
       simp_all only [not_false_eq_true, or_self]
     · simp_all only [and_false, or_false, and_self, or_true, not_true_eq_false, not_false_eq_true, forall_true_left,
         and_true, false_or]
@@ -565,19 +577,16 @@ by
       unhygienic with_reducible aesop_destruct_products
       aesop_subst right_2
       simp_all only [not_false_eq_true]
-    ·
-      simp_all only [false_and, or_self, not_false_eq_true, true_or, not_true_eq_false, and_true, and_self, and_false,
+    · simp_all only [false_and, or_self, not_false_eq_true, true_or, not_true_eq_false, and_true, and_self, and_false,
         IsEmpty.forall_iff, or_false, or_true]
     · simp_all only [false_and, or_false, not_true_eq_false, false_or, not_and, and_true, and_false, and_self,
         IsEmpty.forall_iff, true_and]
       intro a
       aesop_subst a
       simp_all only [not_true_eq_false, and_false]
-    ·
-      simp_all only [and_self, or_self, not_false_eq_true, and_true, true_or, not_true_eq_false, and_false,
+    · simp_all only [and_self, or_self, not_false_eq_true, and_true, true_or, not_true_eq_false, and_false,
         IsEmpty.forall_iff, or_false, or_true]
-    ·
-      simp_all only [and_true, or_self, not_false_eq_true, and_false, or_false, not_true_eq_false, and_self,
+    · simp_all only [and_true, or_self, not_false_eq_true, and_false, or_false, not_true_eq_false, and_self,
         IsEmpty.forall_iff, or_true]
     · simp_all only [and_self, or_false, not_true_eq_false, and_true, false_or, and_false, IsEmpty.forall_iff,
         false_and, true_and]
@@ -586,26 +595,65 @@ by
       intro a
       aesop_subst a
       simp_all only
-    ·
-      simp_all only [and_true, or_false, not_true_eq_false, and_false, or_self, not_false_eq_true, and_self,
+    · simp_all only [and_true, or_false, not_true_eq_false, and_false, or_self, not_false_eq_true, and_self,
         IsEmpty.forall_iff, or_true]
 
-lemma r5_not_weak_order
-  {α : Type}
+instance
+  {α β : Type}
   (S : α → α → Prop)
-  (T : α → α → Prop)
-  [hS : CStrictOrder S]
-  [hT : CStrictOrder T]
-  [hn : Nonempty α]
+  (T : β → β → Prop)
+  [CStrictOrder S]
+  [CStrictOrder T]
   [DecidableRel S]
   [DecidableRel T]
   [DecidableEq α]
+  [DecidableEq β]
+  [Nonempty α]
+  [Nonempty β]
+  : CStrictOrder (R5 S T) where
+  trans := by
+    intro a b c
+    exact (r5_strict_order S T a b c).1
+  trich := by
+    intro a b
+    have p : α × β := Classical.choice Prod.Nonempty
+    exact (r5_strict_order S T a b p).2
+
+-- #eval R5 (R5 (Nat.lt) (Nat.lt)) (Nat.lt) ((1, 2), 4) ((1, 2), 3)
+
+-- def lexicographic_n
+--   {α : Type}
+--   (n : ℕ)
+--   (comp : α → α → Prop)
+--   [CStrictOrder comp]
+--   [DecidableRel comp]
+--   [DecidableEq α]
+--   : α → α → Prop
+-- := match n with
+--   | 0 => comp
+--   | i + 1 => by
+--     haveI : CStrictOrder (lexicographic_n i comp) := sorry
+--     haveI : DecidableRel (lexicographic_n i comp) := sorry
+--     exact R5 (lexicographic_n i comp) comp
+
+lemma r5_not_weak_order
+  {α β : Type}
+  (S : α → α → Prop)
+  (T : β → β → Prop)
+  [hS : CStrictOrder S]
+  [hT : CStrictOrder T]
+  [DecidableRel S]
+  [DecidableRel T]
+  [DecidableEq α]
+  [DecidableEq β]
+  [Nonempty α]
+  [Nonempty β]
   : ¬WeakOrder (R5 S T) :=
 by
   intro hwo
   rw [WeakOrder] at hwo
   have hf := hwo.2
-  have p : α × α := Classical.choice Prod.Nonempty
+  have p : α × β := Classical.choice Prod.Nonempty
   specialize hf p p
   simp [R5] at hf
   rcases hf with (hS1 | hT1)
@@ -619,3 +667,131 @@ by
     · exact hT3.left hT1
     · have := hT4.right.right
       contradiction
+
+def R5'
+  {α : Type}
+  [hlt : LT α]
+  [CStrictOrder hlt.lt]
+  [DecidableRel hlt.lt]
+  [DecidableEq α]
+  (p q : List α)
+  : Prop :=
+  match p, q with
+  -- Lists fully match
+  | [], [] => False
+  -- First list shorter
+  | [], _ => True
+  -- Second list shorter
+  | _, [] => False
+  | a :: p', b :: q' =>  a < b ∨ (a = b ∧ (R5' p' q'))
+
+lemma R5'_false
+  {α : Type}
+  [hlt : LT α]
+  [CStrictOrder hlt.lt]
+  [DecidableRel hlt.lt]
+  [DecidableEq α]
+  {p : List α}
+  : R5' p [] ↔ False :=
+by
+  simp
+  intro hr
+  rw [R5'] at hr
+  · exact hr
+  · intro heq
+    rw [heq] at hr
+    rw [R5'] at hr
+    exact hr
+  · intro heq
+    rw [heq] at hr
+    rw [R5'] at hr
+    exact hr
+
+instance
+  {α : Type}
+  [hlt : LT α]
+  [CStrictOrder hlt.lt]
+  [DecidableRel hlt.lt]
+  [DecidableEq α]
+  (a b : List α)
+  : Decidable (R5' a b) :=
+by
+  induction' a with ta la iha generalizing b
+  · cases' b with tb lb
+    · rw [R5']
+      exact decidableFalse
+    · rw [R5']
+      · exact decidableTrue
+      · intro heq
+        contradiction
+  · cases' b with tb lb
+    · rw [R5']
+      · exact decidableFalse
+      · intro heq
+        contradiction
+      · intro heq
+        contradiction
+    · rw [R5']
+      have hdec3 : Decidable (R5' la lb) := by
+        specialize iha lb
+        exact iha
+      have hdec1 : Decidable (ta < tb) := by
+        infer_instance
+      have hdec2 : Decidable (ta = tb) := by
+        infer_instance
+      exact Or.decidable
+
+-- TODO fix typeclasses so dont need this hint
+#eval @R5' _ _ strict_nat_lt _ _ [1, 2, 3] [1, 2, 3]
+
+instance
+  {α : Type}
+  [hlt : LT α]
+  [hC : CStrictOrder hlt.lt]
+  [DecidableRel hlt.lt]
+  [DecidableEq α]
+  (a b : List α)
+  : CStrictOrder (@R5' α _ _ _ _)  where
+    trans := by
+      intro a b c r1 r2
+      induction' a with ta la iha generalizing c b
+      · rw [R5']
+        · simp only
+        · intro heq
+          rw [heq] at r2
+          exact R5'_false.mp r2
+      · cases' c with tc lc
+        · exact R5'_false.mp r2
+        · rw [R5']
+          cases' b with tb lb
+          · exfalso
+            exact R5'_false.mp r1
+          · rw [R5'] at r1 r2
+            rcases r1 with (r1 | ⟨heq1, r1⟩)
+            · rcases r2 with (r2 | ⟨heq2, r2⟩)
+              · left
+                exact hC.trans r1 r2
+              · left
+                rw [heq2] at r1
+                exact r1
+            · rcases r2 with (r2 | ⟨heq2, r2⟩)
+              · left
+                rw [←heq1] at r2
+                exact r2
+              · right
+                constructor
+                · rw [heq2] at heq1
+                  exact heq1
+                · exact iha r1 r2
+    trich := by
+      intro a b
+      rw [Trichotomy]
+      let f := R5' a b
+      have hf : f = R5' a b := rfl
+      · intro hr
+      · sorry
+
+-- TODO only look at head when creating sorted dictionary key
+-- and look only at last element when ++
+
+-- TODO set with 2 elem, then if x is not one, then it is the other
